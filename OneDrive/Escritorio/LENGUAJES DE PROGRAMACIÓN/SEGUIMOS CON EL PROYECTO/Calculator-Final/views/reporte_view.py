@@ -147,17 +147,24 @@ class ReporteView:
             if not connection:
                 return None
             cursor = connection.cursor(dictionary=True)
-            # Consulta principal para obtener estadísticas globales
+            # Consulta principal para obtener estadísticas globales, usando la tabla favoritos
             query = """
             SELECT 
-                id_calculo,
-                expresion,
-                resultado,
-                tipo_calculo,
-                timestamp_calculo,
-                es_favorito
-            FROM historial_calculos 
-            ORDER BY timestamp_calculo DESC
+                h.id_calculo,
+                h.expresion,
+                h.resultado,
+                h.tipo_calculo,
+                h.timestamp_calculo,
+                CASE 
+                    WHEN f.id_favorito IS NOT NULL THEN 1
+                    ELSE 0
+                END AS es_favorito
+            FROM historial_calculos h
+            LEFT JOIN favoritos f
+                ON h.id_calculo = f.id_referencia
+                AND f.tipo_favorito = 'calculo'
+                AND f.id_usuario = h.id_usuario
+            ORDER BY h.timestamp_calculo DESC
             LIMIT 1000
             """
             cursor.execute(query)
@@ -251,79 +258,127 @@ class ReporteView:
         canvas.get_tk_widget().pack(fill='both', expand=True)
         
     def create_operations_types_tab(self, notebook, stats_data):
-        """Crear pestaña de tipos de operaciones"""
+        """Crear pestaña de tipos de operaciones SOLO para el usuario actual"""
         tab_frame = ttk.Frame(notebook)
         notebook.add(tab_frame, text="🔢 Tipos de Operaciones")
-        
+
+        # Obtener el id del usuario actual
+        user_id = None
+        if self.app.current_user:
+            user_id = self.app.current_user.get('id_usuario') or self.app.current_user.get('id')
+        if not user_id:
+            # Si no hay usuario, mostrar mensaje
+            label = tk.Label(tab_frame, text="No hay usuario autenticado.", font=('Arial', 12))
+            label.pack(pady=30)
+            return
+
+        # Consultar los cálculos SOLO de este usuario
+        try:
+            connection = self.app.db_connection.get_connection()
+            if not connection:
+                raise Exception("No hay conexión a la base de datos")
+            cursor = connection.cursor(dictionary=True)
+            query = """
+                SELECT expresion, tipo_calculo, timestamp_calculo, es_favorito
+                FROM historial_calculos
+                WHERE id_usuario = %s
+                ORDER BY timestamp_calculo DESC
+                LIMIT 1000
+            """
+            cursor.execute(query, (user_id,))
+            calculations = cursor.fetchall()
+        except Exception as e:
+            label = tk.Label(tab_frame, text=f"Error al obtener datos: {e}", font=('Arial', 12))
+            label.pack(pady=30)
+            return
+        finally:
+            if 'cursor' in locals():
+                cursor.close()
+
         # Crear figura
         fig = Figure(figsize=(10, 6), facecolor='white')
-        
-        calculations = stats_data['calculations']
-        
-        # Gráfico 1: Distribución de tipos de cálculo
+
+        # Gráfico 1: Distribución de tipos de cálculo (basico, cientifico, matriz, grafico)
         ax1 = fig.add_subplot(2, 2, 1)
-        tipo_counts = defaultdict(int)
+        tipo_map = {'basico': 'Básico', 'cientifico': 'Científico', 'matriz': 'Matriz',}
+        tipo_counts = {v: 0 for v in tipo_map.values()}
         for calc in calculations:
-            tipo_counts[calc['tipo_calculo']] += 1
-            
-        if tipo_counts:
-            tipos = list(tipo_counts.keys())
-            counts = list(tipo_counts.values())
+            tipo = calc['tipo_calculo']
+            tipo_legible = tipo_map.get(tipo, tipo)
+            if tipo_legible in tipo_counts:
+                tipo_counts[tipo_legible] += 1
+            else:
+                tipo_counts[tipo_legible] = 1
+        tipos = list(tipo_counts.keys())
+        counts = list(tipo_counts.values())
+        if sum(counts) > 0:
             colors = plt.cm.Set3(np.linspace(0, 1, len(tipos)))
-            
-            wedges, texts, autotexts = ax1.pie(counts, labels=tipos, autopct='%1.1f%%', 
-                                             startangle=90, colors=colors)
+            ax1.pie(counts, labels=tipos, autopct='%1.1f%%', startangle=90, colors=colors)
             ax1.set_title('Distribución de Tipos de Cálculo', fontsize=12, fontweight='bold')
-        
+        else:
+            ax1.text(0.5, 0.5, 'Sin datos', ha='center', va='center', transform=ax1.transAxes)
+
         # Gráfico 2: Operaciones más utilizadas (análisis de expresiones)
         ax2 = fig.add_subplot(2, 2, 2)
         operation_patterns = self.analyze_operation_patterns(calculations)
         if operation_patterns:
-            operations = list(operation_patterns.keys())[:10]  # Top 10
-            frequencies = list(operation_patterns.values())[:10]
-            
+            operations = list(operation_patterns.keys())[:8]  # Top 8
+            frequencies = list(operation_patterns.values())[:8]
             bars = ax2.barh(operations, frequencies, color='lightcoral', alpha=0.7)
             ax2.set_title('Operaciones Más Utilizadas (Top 8)', fontsize=12, fontweight='bold')
             ax2.set_xlabel('Frecuencia de Uso')
-            
-            # Añadir valores en las barras
             for bar in bars:
                 width = bar.get_width()
-                ax2.text(width, bar.get_y() + bar.get_height()/2, 
-                        f'{int(width)}', ha='left', va='center')
-        
+                ax2.text(width, bar.get_y() + bar.get_height()/2, f'{int(width)}', ha='left', va='center')
+        else:
+            ax2.text(0.5, 0.5, 'Sin datos', ha='center', va='center', transform=ax2.transAxes)
+
         # Gráfico 3: Evolución de complejidad de operaciones
         ax3 = fig.add_subplot(2, 2, 3)
         complexity_over_time = self.analyze_complexity_over_time(calculations)
         if complexity_over_time:
             dates = list(complexity_over_time.keys())
             complexity = list(complexity_over_time.values())
-            
             ax3.plot(dates, complexity, marker='o', linewidth=2, color='purple', alpha=0.7)
             ax3.set_title('Evolución de Complejidad de Operaciones', fontsize=12, fontweight='bold')
             ax3.set_xlabel('Fecha')
             ax3.set_ylabel('Complejidad Promedio')
             ax3.tick_params(axis='x', rotation=45)
             ax3.grid(True, alpha=0.3)
-        
-        # Gráfico 4: Operaciones favoritas vs normales
+        else:
+            ax3.text(0.5, 0.5, 'Sin datos', ha='center', va='center', transform=ax3.transAxes)
+
+        # Gráfico 4: Operaciones favoritas vs normales (usando tabla favoritos)
         ax4 = fig.add_subplot(2, 2, 4)
-        favorite_counts = {'Favoritas': 0, 'Normales': 0}
-        for calc in calculations:
-            if calc['es_favorito']:
-                favorite_counts['Favoritas'] += 1
-            else:
-                favorite_counts['Normales'] += 1
-                
-        labels = list(favorite_counts.keys())
-        sizes = list(favorite_counts.values())
+        # Obtener el id del usuario actual
+        user_id = None
+        if self.app.current_user:
+            user_id = self.app.current_user.get('id_usuario') or self.app.current_user.get('id')
+        favoritas = 0
+        if user_id:
+            try:
+                connection = self.app.db_connection.get_connection()
+                if connection:
+                    cursor = connection.cursor()
+                    cursor.execute("SELECT COUNT(*) FROM favoritos WHERE id_usuario = %s AND tipo_favorito = 'calculo'", (user_id,))
+                    favoritas = cursor.fetchone()[0]
+            except Exception as e:
+                favoritas = 0
+            finally:
+                if 'cursor' in locals():
+                    cursor.close()
+        normales = len(calculations) - favoritas
+        labels = ['Favoritas', 'Normales']
+        sizes = [favoritas, normales]
         colors = ['gold', 'lightblue']
-        
-        ax4.pie(sizes, labels=labels, autopct='%1.1f%%', colors=colors, startangle=90)
-        ax4.set_title('Operaciones Favoritas vs Normales', fontsize=12, fontweight='bold')
-        
+        if sum(sizes) > 0:
+            ax4.pie(sizes, labels=labels, autopct='%1.1f%%', colors=colors, startangle=90)
+            ax4.set_title('Operaciones Favoritas vs Normales', fontsize=12, fontweight='bold')
+        else:
+            ax4.text(0.5, 0.5, 'Sin datos', ha='center', va='center', transform=ax4.transAxes)
+
         fig.subplots_adjust(left=0.10, right=0.97, top=0.93, bottom=0.12, wspace=0.35, hspace=0.35)
-        
+
         # Integrar matplotlib en tkinter
         canvas = FigureCanvasTkAgg(fig, tab_frame)
         canvas.draw()
