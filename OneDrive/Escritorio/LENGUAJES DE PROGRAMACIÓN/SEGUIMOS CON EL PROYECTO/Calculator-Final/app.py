@@ -15,7 +15,7 @@ from views.reporte_view import ReporteView
 class CalculatorApp:
     def __init__(self):
         self.root = tk.Tk()
-        self.root.title("Calculadora Científica Retro")
+        self.root.title("Calculadora Científica")
         self.root.state('zoomed')
         self.center_window(1200, 800)
         
@@ -117,7 +117,7 @@ class CalculatorApp:
         # Título de la calculadora
         title_label = tk.Label(
             header_frame,
-            text="🧮 Calculadora Científica Retro",
+            text="🧮 Calculadora Científica 'NUMINA'",
             font=("Courier New", 18, "bold"),
             bg=self.colors['bg'],
             fg=self.colors['text_dark']
