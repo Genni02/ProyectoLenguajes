@@ -47,7 +47,7 @@ class CalculatorApp:
         self.function_parameters = {}
         
         # Configurar UI
-        self.setup_ui()
+        self.setup_ui() 
         
         # Vistas (sin inicializar DefinitionsView aquí)
         self.views = {

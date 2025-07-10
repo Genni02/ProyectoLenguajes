@@ -1066,26 +1066,39 @@ class operations:
         return (has_numbers and (has_operators or has_functions)) or has_variables or has_matrices
     
     def get_operation_info(self, expression):
-        """Obtiene información sobre la operación"""
-        info = {
-            'expression': expression,
-            'type': 'unknown',
-            'complexity': 'simple'
-        }
-        
-        if self._is_equation(expression):
-            info['type'] = 'equation'
-        elif self._is_matrix_operation(expression):
-            info['type'] = 'matrix'
-        elif self._is_derivative(expression):
-            info['type'] = 'derivative'
-        elif self._is_integral(expression):
-            info['type'] = 'integral'
-        elif self._contains_variables(expression):
-            info['type'] = 'symbolic'
-        elif self._is_fraction(expression):
-            info['type'] = 'fraction'
-        else:
-            info['type'] = 'basic_operations'
-        
-        return info
+     """Obtiene información sobre la operación"""
+     info = {
+         'expression': expression,
+         'type': 'unknown',
+         'complexity': 'simple'
+     }
+
+     if self._is_equation(expression):
+         info['type'] = 'equation'
+     elif self._is_matrix_operation(expression):
+         info['type'] = 'matrix'
+     elif self._is_derivative(expression):
+         info['type'] = 'derivative'
+     elif self._is_integral(expression):
+         info['type'] = 'integral'
+     elif self._is_trigonometric(expression):
+         info['type'] = 'trigonometric'
+     elif self._is_logarithmic(expression):
+         info['type'] = 'logarithmic'
+     elif self._contains_variables(expression):
+         info['type'] = 'symbolic'
+     elif self._is_fraction(expression):
+         info['type'] = 'fraction'
+     else:
+         info['type'] = 'basic_operations'
+
+     return info
+    
+    def _is_trigonometric(self, expression):
+     trig_funcs = ['sin', 'cos', 'tan', 'cot', 'sec', 'csc', 'asin', 'acos', 'atan']
+     return any(func in expression for func in trig_funcs)
+
+    def _is_logarithmic(self, expression):
+     log_funcs = ['log', 'ln', 'log10', 'log2']
+     return any(func in expression for func in log_funcs)
+

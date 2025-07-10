@@ -15,7 +15,7 @@ class RoundedButton(tk.Canvas):
         self.clicked = clicked
         self.radius = radius
         self.text_content = text
-        self._click_in_progress = False  # Prevenir clics múltiples
+        self._click_in_progress = False  # Prevenir clics múltiples 
         
         # No crear el texto aquí, lo haremos en el método draw
         self.text_id = None
@@ -397,20 +397,28 @@ class CalculatorView:
             self.current_calculation = None
     
     def determine_calculation_type_from_info(self, operation_info):
-        """Convierte el tipo de operación a TipoCalculo"""
-        from models import TipoCalculo
-        
-        type_mapping = {
-            'basic_operations': TipoCalculo.BASICO,
-            'symbolic': TipoCalculo.CIENTIFICO,
-            'derivative': TipoCalculo.CIENTIFICO,
-            'integral': TipoCalculo.CIENTIFICO,
-            'equation': TipoCalculo.CIENTIFICO,
-            'matrix': TipoCalculo.MATRIZ,
-            'fraction': TipoCalculo.BASICO
-        }
-        
-        return type_mapping.get(operation_info['type'], TipoCalculo.BASICO)
+     from models import TipoCalculo
+
+     print(f"DEBUG: tipo detectado = {operation_info.get('type')}")
+
+     type_mapping = {
+         'basic_operations': TipoCalculo.BASICO,
+         'fraction': TipoCalculo.BASICO,
+         'symbolic': TipoCalculo.CIENTIFICO,
+         'derivative': TipoCalculo.CIENTIFICO,
+         'integral': TipoCalculo.CIENTIFICO,
+         'equation': TipoCalculo.CIENTIFICO,
+         'matrix': TipoCalculo.MATRIZ,
+         'trigonometric': TipoCalculo.CIENTIFICO,
+         'logarithmic': TipoCalculo.CIENTIFICO,
+         'calculus': TipoCalculo.CIENTIFICO,
+         'variable': TipoCalculo.CIENTIFICO
+     }
+
+     return type_mapping.get(operation_info.get('type', ''), TipoCalculo.BASICO)
+
+
+
     
     def save_current_calculation(self):
         """Guarda el cálculo actual usando el operations controller."""

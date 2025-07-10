@@ -391,6 +391,7 @@ class CalculatorView:
             
             # Determinar tipo de cálculo usando operations
             operation_info = self.operations.get_operation_info(expression)
+            print("operation_info:", operation_info)
             calc_type = self.determine_calculation_type_from_info(operation_info)
             
             # Agregar al historial
@@ -411,20 +412,27 @@ class CalculatorView:
             self.current_calculation = None
     
     def determine_calculation_type_from_info(self, operation_info):
-        """Convierte el tipo de operación a TipoCalculo"""
         from models import TipoCalculo
-        
-        type_mapping = {
-            'basic_operations': TipoCalculo.BASICO,
-            'symbolic': TipoCalculo.CIENTIFICO,
-            'derivative': TipoCalculo.CIENTIFICO,
-            'integral': TipoCalculo.CIENTIFICO,
-            'equation': TipoCalculo.CIENTIFICO,
-            'matrix': TipoCalculo.MATRIZ,
-            'fraction': TipoCalculo.BASICO
+
+    # Todos estos se consideran científicos
+        scientific_types = {
+         'symbolic', 'derivative', 'integral', 'equation',
+         'logarithmic', 'trigonometric', 'calculus', 'matrix'
         }
-        
-        return type_mapping.get(operation_info['type'], TipoCalculo.BASICO)
+
+    # Solo estos son básicos
+        basic_types = {'basic_operations', 'fraction'}
+
+        op_type = operation_info.get('type', '')
+
+        if op_type in scientific_types:
+         return TipoCalculo.CIENTIFICO
+        elif op_type in basic_types:
+         return TipoCalculo.BASICO
+        else:
+         return TipoCalculo.BASICO  
+
+
     
     def save_current_calculation(self):
         """Guarda el cálculo actual usando el operations controller."""

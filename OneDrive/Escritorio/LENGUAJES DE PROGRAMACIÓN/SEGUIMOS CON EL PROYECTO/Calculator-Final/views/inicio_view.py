@@ -1,104 +1,141 @@
 import tkinter as tk
 from tkinter import ttk
-from datetime import datetime
 from utils.styles import get_colors
+from datetime import datetime, timedelta
+from collections import defaultdict
 
 class InicioView:
-    def __init__(self, app, parent_frame=None):
+    def __init__(self, app, parent_frame):
         self.app = app
         self.parent_frame = parent_frame
         self.colors = get_colors()
         self.frame = None
-        self.range_var = tk.StringVar(value='Día')
 
     def show(self):
         if self.frame:
             self.frame.destroy()
-        parent = self.parent_frame if self.parent_frame else self.app.calc_frame
-        self.frame = ttk.Frame(parent)
+
+        self.frame = ttk.Frame(self.parent_frame)
         self.frame.pack(fill='both', expand=True, padx=10, pady=10)
 
-        self.create_welcome_section(self.frame)
-        self.create_stats_cards(self.frame)
+        self.create_welcome_message()
+        self.create_filter_options()
+        self.create_cards()
 
-    def create_welcome_section(self, parent):
-        welcome_frame = ttk.LabelFrame(parent, text="🎉 ¡Bienvenido a la Calculadora Científica!", padding=20)
+    def create_welcome_message(self):
+        welcome_frame = ttk.LabelFrame(self.frame, text="👋 Bienvenido", padding=20)
         welcome_frame.pack(fill='x', padx=10, pady=10)
+
         user_name = self.app.current_user.get("name", "Usuario") if self.app.current_user else "Usuario"
-        welcome_text = f"""
-¡Hola {user_name}! 👋\n\nEsta es tu calculadora científica personal con capacidades avanzadas.\nAquí puedes realizar cálculos complejos, guardar operaciones favoritas,\ngestionar variables personalizadas y mucho más.\n"""
-        welcome_label = tk.Label(welcome_frame, text=welcome_text, font=('Arial', 12), justify='left',
-                                bg=self.colors['bg'], fg=self.colors['text'])
-        welcome_label.pack(anchor='w')
+        welcome_text = f"Hola {user_name}, esta es tu vista general de actividad en la calculadora."
 
-        # Combo para seleccionar rango
-        combo_frame = ttk.Frame(welcome_frame)
-        combo_frame.pack(anchor='e', pady=(10, 0))
-        ttk.Label(combo_frame, text="Ver por:").pack(side='left')
-        combo = ttk.Combobox(combo_frame, textvariable=self.range_var, values=['Día', 'Semana', 'Mes'], state='readonly', width=10)
-        combo.pack(side='left', padx=5)
-        combo.bind('<<ComboboxSelected>>', lambda e: self.update_cards())
+        label = tk.Label(welcome_frame, text=welcome_text, font=('Arial', 13, 'bold'),
+                         bg=self.colors['bg'], fg=self.colors['text'])
+        label.pack(anchor='w')
 
-    def create_stats_cards(self, parent):
-        self.cards_frame = tk.Frame(parent, bg='#f0f4ff')
+    def create_filter_options(self):
+        filter_frame = ttk.LabelFrame(self.frame, text="🗓️ Filtro Temporal", padding=10)
+        filter_frame.pack(fill='x', padx=10, pady=10)
+
+        self.filter_var = tk.StringVar(value="mes")
+        options = [
+            ("Por Día", "dia"),
+            ("Por Semana", "semana"),
+            ("Por Mes", "mes")
+        ]
+
+        for text, value in options:
+            rb = ttk.Radiobutton(filter_frame, text=text, variable=self.filter_var, value=value, command=self.update_cards)
+            rb.pack(side='left', padx=10)
+
+    def create_cards(self):
+        self.cards_frame = tk.Frame(self.frame, bg=self.colors['bg'])
         self.cards_frame.pack(fill='x', padx=10, pady=10)
         self.update_cards()
 
     def update_cards(self):
-        for widget in self.cards_frame.winfo_children():
-            widget.destroy()
-        # Simulación de datos (reemplazar por consulta real)
-        stats = self.get_stats_data(self.range_var.get())
-        # Card: Operaciones realizadas
-        self.create_card(self.cards_frame, "Operaciones realizadas", stats['operaciones'], 0, '#1976d2')
-        # Card: Tiempo total de uso
-        self.create_card(self.cards_frame, "Tiempo total de uso", stats['tiempo_uso'], 1, '#43a047')
-        # Card: Días con mayor actividad
-        self.create_card(self.cards_frame, "Días con mayor actividad", stats['dias_activos'], 2, '#fbc02d')
-        # Card: Media de operaciones por sesión
-        self.create_card(self.cards_frame, "Promedio de operaciones por sesión", stats['media_sesion'], 3, '#e53935')
-        # Card: Top 5 operaciones más utilizadas
-        self.create_top5_card(self.cards_frame, stats['top_operaciones'], 4, '#00838f')
+     for widget in self.cards_frame.winfo_children():
+         widget.destroy()
 
-    def create_card(self, parent, title, value, col, color):
-        card = tk.Frame(parent, bg=color, bd=0, relief='ridge', highlightthickness=0)
-        card.grid(row=0, column=col, padx=8, pady=5, sticky='nsew')
-        tk.Label(card, text=title, font=('Arial', 10, 'bold'), bg=color, fg='white').pack(pady=(8,0))
-        tk.Label(card, text=str(value), font=('Arial', 18, 'bold'), bg=color, fg='white').pack(pady=(0,8))
-        parent.grid_columnconfigure(col, weight=1)
+     stats = self.get_stats()
 
-    def create_top5_card(self, parent, top5, col, color):
-        card = tk.Frame(parent, bg=color, bd=0, relief='ridge', highlightthickness=0)
-        card.grid(row=0, column=col, padx=8, pady=5, sticky='nsew')
-        tk.Label(card, text="Top 5 Operaciones", font=('Arial', 10, 'bold'), bg=color, fg='white').pack(pady=(8,0))
-        for i, (op, count) in enumerate(top5, 1):
-            tk.Label(card, text=f"{i}. {op} ({count})", font=('Arial', 10), bg=color, fg='white').pack(anchor='w')
-        parent.grid_columnconfigure(col, weight=1)
+     filtro = self.filter_var.get()
+     if filtro == 'dia':
+         titulo_actividad = "Día con más actividad"
+     elif filtro == 'semana':
+         titulo_actividad = "Semana con más actividad"
+     elif filtro == 'mes':
+         titulo_actividad = "Mes con más actividad"
+     else:
+         titulo_actividad = "Día con más actividad"
 
-    def get_stats_data(self, rango):
-        # Aquí deberías consultar la base de datos según el rango seleccionado
-        # Estos son datos simulados para mostrar el diseño
-        if rango == 'Día':
-            return {
-                'operaciones': 23,
-                'tiempo_uso': '1h 15m',
-                'dias_activos': 'Hoy',
-                'media_sesion': 7.6,
-                'top_operaciones': [('Suma', 10), ('Resta', 5), ('Multiplicación', 3), ('División', 3), ('Potencia', 2)]
-            }
-        elif rango == 'Semana':
-            return {
-                'operaciones': 120,
-                'tiempo_uso': '6h 40m',
-                'dias_activos': 'Lun, Mié, Vie',
-                'media_sesion': 8.2,
-                'top_operaciones': [('Suma', 40), ('Resta', 25), ('Multiplicación', 20), ('División', 18), ('Potencia', 17)]
-            }
-        else:  # Mes
-            return {
-                'operaciones': 480,
-                'tiempo_uso': '28h 10m',
-                'dias_activos': '10 días activos',
-                'media_sesion': 8.9,
-                'top_operaciones': [('Suma', 160), ('Resta', 120), ('Multiplicación', 80), ('División', 70), ('Potencia', 50)]
-            }
+     self.create_card("Operaciones totales", stats['total_operaciones'], 0, '#1976d2')
+     self.create_card("Función más usada", stats['funcion_mas_usada'], 1, '#43a047')
+     self.create_card("Promedio por día", f"{stats['promedio_diario']:.1f}", 2, '#fbc02d')
+     self.create_card(titulo_actividad, stats['dia_mas_activo'], 3, '#e53935')
+
+
+    def get_stats(self):
+        filtro = self.filter_var.get()
+        stats = {}
+        stats['total_operaciones'] = self.dashboard.get_total_operaciones(rango=filtro)
+        tipo_usado = self.dashboard.get_tipo_calculo_mas_usado()
+        stats['funcion_mas_usada'] = tipo_usado['tipo_calculo'] if tipo_usado else 'N/A'
+        stats['promedio_diario'] = self.dashboard.get_promedio_diario()
+        dia = self.dashboard.get_dia_con_mayor_actividad()
+        stats['dia_mas_activo'] = dia['dia'] if dia else 'N/A'
+        return stats
+
+
+    def create_card(self, title, value, column, color):
+        card = tk.Frame(self.cards_frame, bg=color, bd=0, relief='ridge', highlightthickness=0)
+        card.grid(row=0, column=column, padx=8, ipadx=10, ipady=10, sticky='nsew')
+        self.cards_frame.grid_columnconfigure(column, weight=1)
+
+        label_title = tk.Label(card, text=title, font=('Arial', 11, 'bold'), bg=color, fg='white')
+        label_title.pack(pady=(5, 0), padx=8)
+
+        label_value = tk.Label(card, text=value, font=('Arial', 18, 'bold'), bg=color, fg='white')
+        label_value.pack(pady=(0, 8), padx=8)
+
+    def get_stats(self):
+        filtro = self.filter_var.get()
+        connection = self.app.db_connection.get_connection()
+        cursor = connection.cursor(dictionary=True)
+
+        query = """
+            SELECT tipo_calculo, DATE(timestamp_calculo) as fecha
+            FROM historial_calculos
+        """
+        cursor.execute(query)
+        rows = cursor.fetchall()
+        cursor.close()
+
+        total_operaciones = len(rows)
+        por_dia = defaultdict(int)
+        tipo_counter = defaultdict(int)
+
+        for row in rows:
+            fecha = row['fecha']
+            tipo = row['tipo_calculo']
+
+            if filtro == 'dia':
+                key = fecha.strftime('%Y-%m-%d')
+            elif filtro == 'semana':
+                key = fecha.strftime('%Y-W%W')
+            else:  # mes
+                key = fecha.strftime('%Y-%m')
+
+            por_dia[key] += 1
+            tipo_counter[tipo] += 1
+
+        dia_mas_activo = max(por_dia.items(), key=lambda x: x[1])[0] if por_dia else 'N/A'
+        funcion_mas_usada = max(tipo_counter.items(), key=lambda x: x[1])[0] if tipo_counter else 'N/A'
+        promedio = total_operaciones / max(len(por_dia), 1)
+
+        return {
+            'total_operaciones': total_operaciones,
+            'funcion_mas_usada': funcion_mas_usada,
+            'promedio_diario': promedio,
+            'dia_mas_activo': dia_mas_activo
+        }
